@@ -18,113 +18,6 @@ elastic_prod = Elasticsearch([{'host':Elastic_Prod_Address,'port':Elastic_Port}]
 
 top_cities={}
 
-def get_experience_score1():
-	company={}
-	
-	naukri=[]
-	candidate=[]
-	naukri_shortlist={}
-
-	# for i in shortlisted_candidates.find():
-	# 	naukri.append(i)
-	k=0
-	for i in jobs.find():
-		print k
-		k+=1
-		print i
-		print '\n''\n''\n''\n'
-		# naukri_shortlist[i['_id']]=i
-		if k==10:
-			break
-
-	# print "starting"	
-	# age_map_in_range={}
-	# age_map_out_range={}
-	# po=0
-	# for i in naukri:
-	# 	if po%50==0:
-	# 		print company
-	# 	po+=1
-	# 	# in_range=0
-	# 	if i['company_id'] not in company:
-	# 		company[i['company_id']]=[[0],[0],[0,0,0,0],[0],[0]]     #consider this as a 3d vector and take its cos component as weigths while deciding the proportion of people recommended in the range
-		
-	# 	try:
-	# 		low=(float)(naukri_shortlist[ObjectId(i['job_id'])]['experience']['min'])
-	# 		high=(float)(naukri_shortlist[ObjectId(i['job_id'])]['experience']['max'])
-			
-	# 		# print "get candidate"
-	# 		candidate=elastic_prod.search(index=i['company_id'],doc_type="candidate",body={"query": {
-	# 																					   	"term": {
-	# 																					    	"_id": {
-	# 																					    		"value": i['candidate_id']
-	# 																					      			}
-	# 																					    		}
-	# 																					    	}
-	# 																					    })	
-	# 		candidate_experience=candidate['hits']['hits'][0]['_source']['total_experience']/365.00
-	# 		if candidate_experience>=low and candidate_experience<=high:
-	# 			percent=(candidate_experience-low)/(high-low)
-	# 			if percent<=.25:
-	# 				company[i['company_id']][2][0]+=1
-	# 			elif percent<=.5:
-	# 				company[i['company_id']][2][1]+=1
-	# 			elif percent<=.75:
-	# 				company[i['company_id']][2][2]+=1
-	# 			else:
-	# 				company[i['company_id']][2][3]+=1
-	# 		else:
-	# 			if candidate_experience<low and candidate_experience>=low-1:
-	# 				company[i['company_id']][1][0]+=1
-	# 			elif candidate_experience>high and candidate_experience<=high+1:
-	# 				company[i['company_id']][3][0]+=1
-	# 			elif candidate_experience<low-1:
-	# 				company[i['company_id']][0][0]+=1
-	# 			else:
-	# 				company[i['company_id']][4][0]+=1
-
-			# if i['company_id'] not in company:  
-			# 	company[i['company_id']]={}
-			# 	company[i['company_id']]['colleges_hired']={}
-			# 	company[i['company_id']]['cities_hired']={}
-			# print candidate
-			# print  candidate['hits']['hits'][0]['_source']['educations']
-			# for j in candidate['hits']['hits'][0]['_source']['educations']:
-			# 	if j['institute']['name'] not in company[i['company_id']]['colleges_hired']:
-			# 		company[i['company_id']]['colleges_hired'][j['institute']['name']]=1
-			# 	else:
-			# 		company[i['company_id']]['colleges_hired'][j['institute']['name']]+=1
-
-			# candidate_location = candidate['hits']['hits'][0]['_source']['linkedin']['current_location']['name']
-			# print candidate_location
-			# if candidate_location not in company[i['company_id']]['cities_hired']:
-			# 	company[i['company_id']]['cities_hired'][candidate_location]=1
-			# else:
-			# 	company[i['company_id']]['cities_hired'][candidate_location]+=1
-			# if candidate_experience>high+2:
-			# 	company[i['company_id']][3]+=1
-			# elif candidate_experience<low-2:
-			# 	company[i['company_id']][0]+=1
-			# elif candidate_experience<low and candidate_experience>=low-2:
-			# 	company[i['company_id']][1]+=1
-			# elif candidate_experience>high and candidate_experience<=high+2:
-			# 	company[i['company_id']][2]+=1
-
-		# except Exception,e:
-		# 	print e
-		# print "ages dicts"
-		# print "analysing"
-		
-		
-		# for k in age_map_out_range:
-		# 	for j in age_map_in_range :
-		# 		print age_map_in_range[i],age_map_out_range[i]
-				# print company[i['company_id']].append(str(k)+","+str(j)+"|"+str(((float)age_map_in_range[j])/age_map_out_range[k]))
-		# break
-	print "ending"
-	print company
-
-
 def get_designation_score_present(company,companies_data,mapping_shortlisted,mapping_jobs):
 	n=0
 	score=0
@@ -342,38 +235,38 @@ def create_behavior(company,companies_data,mapping_shortlisted,mapping_jobs):
 		companies_data[company]['college_preferences']=dict(itertools.islice(companies_data[company_id]['college_preferences'].iteritems(), 10))
 
 	#setting the experience preferences
-	# experience_preference=get_experience_score(company,mapping_shortlisted,mapping_jobs)
-	# if "experience_preference" not in companies_data[company]:
-	# 	companies_data[company]['experience_preference']=experience_preference
-	# else:
-	# 	companies_data[company]['experience_preference']=[i*(0.7**time) for i in companies_data[company]['experience_preference']]
-	# 	for i in range(len(educational_preferences)-2):
-	# 		companies_data[company]["experience_preferences"][i]+=experience_preference[i]
-	# 	companies_data[company]["experience_preferences"][-1]=max(companies_data[company]["experience_preferences"][-1]/(0.7**time),experience_preference[-1])
-	# 	companies_data[company]["experience_preferences"][-2]=min(companies_data[company]["experience_preferences"][-2]/(0.7**time),experience_preference[-2])
+	experience_preference=get_experience_score(company,mapping_shortlisted,mapping_jobs)
+	if "experience_preference" not in companies_data[company]:
+		companies_data[company]['experience_preference']=experience_preference
+	else:
+		companies_data[company]['experience_preference']=[i*(0.7**time) for i in companies_data[company]['experience_preference']]
+		for i in range(len(educational_preferences)-2):
+			companies_data[company]["experience_preferences"][i]+=experience_preference[i]
+		companies_data[company]["experience_preferences"][-1]=max(companies_data[company]["experience_preferences"][-1]/(0.7**time),experience_preference[-1])
+		companies_data[company]["experience_preferences"][-2]=min(companies_data[company]["experience_preferences"][-2]/(0.7**time),experience_preference[-2])
 	
 
-	# #set educational_preferences
-	# if "educational_preferences" not in companies_data[company]:
-	# 	companies_data[company]['educational_preferences']=educational_preferences
-	# else:
-	# 	companies_data[company]['educational_preferences']=companies_data[company]['educational_preferences']
-	# 	st_edu_av=companies_data[company]['educational_preferences'][0]
-	# 	st_edu_no=companies_data[company]['educational_preferences'][1]
-	# 	st_edu_av=((st_edu_av*st_edu_no)+educational_preferences[0])/(st_edu_no+educational_preferences[1])
-	# 	st_edu_no=st_edu_no+educational_preferences
-	# 	companies_data[company]['educational_preferences'][0]=st_edu_av
-	# 	companies_data[company]['educational_preferences'][1]=st_edu_no
+	#set educational_preferences
+	if "educational_preferences" not in companies_data[company]:
+		companies_data[company]['educational_preferences']=educational_preferences
+	else:
+		companies_data[company]['educational_preferences']=companies_data[company]['educational_preferences']
+		st_edu_av=companies_data[company]['educational_preferences'][0]
+		st_edu_no=companies_data[company]['educational_preferences'][1]
+		st_edu_av=((st_edu_av*st_edu_no)+educational_preferences[0])/(st_edu_no+educational_preferences[1])
+		st_edu_no=st_edu_no+educational_preferences
+		companies_data[company]['educational_preferences'][0]=st_edu_av
+		companies_data[company]['educational_preferences'][1]=st_edu_no
 
-	# #getting the preference score for cities
-	# print mapping_shortlisted
-	# city_score=get_city_score(company,mapping_shortlisted,mapping_jobs)
-	# if "city_score" not in  companies_data[company]:
-	# 	companies_data[company]["city_score"]=city_score
-	# else:
-	# 	companies_data[company]["city_score"]=[i*(0.7**time) for i in companies_data[company]["city_score"]]
-	# 	for i in range(len(city_score)):
-	# 		companies_data[company]["city_score"][i]+=city_score[i]
+	#getting the preference score for cities
+	print mapping_shortlisted
+	city_score=get_city_score(company,mapping_shortlisted,mapping_jobs)
+	if "city_score" not in  companies_data[company]:
+		companies_data[company]["city_score"]=city_score
+	else:
+		companies_data[company]["city_score"]=[i*(0.7**time) for i in companies_data[company]["city_score"]]
+		for i in range(len(city_score)):
+			companies_data[company]["city_score"][i]+=city_score[i]
 
 	# print companies_data
 
