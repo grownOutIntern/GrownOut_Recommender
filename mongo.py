@@ -64,8 +64,11 @@ def get_designation_score_past(company,companies_data,mapping_shortlisted,mappin
 
 def get_experience_score(company,mapping_shortlisted,mapping_jobs,):
 	print "getting experience"
-	experience=[0]*18
+	experience=[[0],[0],[0,0,0,0],[0],[0]]
+	count=0
+	error=0
 	for i in mapping_shortlisted:
+		count+=1
 		try:
 			low=int( mapping_jobs[ObjectId(i['job_id'])]['experience']['min'] )
 			high=int( mapping_jobs[ObjectId(i['job_id'])]['experience']['max'] )
@@ -80,18 +83,46 @@ def get_experience_score(company,mapping_shortlisted,mapping_jobs,):
 																						    		"total_experience"
 																						    			]
 																						    })
-			candidate_experience=candidate['hits']['hits'][0]['_source']['total_experience']/365.00
-			experience[-2]=min(low,experience[-2])
-			experience[-1]=max(high,experience[-1])
+			candidate_experience=0.0
+			try:
+				candidate_experience=candidate['hits']['hits'][0]['_source']['total_experience']/365.00	
+			except Exception, e:
+				candidate=elastic_prod.search(index=i['company_id'],doc_type="candidate",body={"query": {
+																							   	"term": {
+																							    	"_id": {
+																							    		"value": i['candidate_id']
+																							      			}
+																							    		}
+																							    	},
+																						    "_source" : [
+																						    		"linkedin.total_experience"
+																						    			]
+																						    })
+				candidate_experience=candidate['hits']['hits'][0]['_source']['linkedin']['total_experience']/365.00
+
 			if candidate_experience>=low and candidate_experience<=high:
-				experience[int(math.floor(candidate_experience))]+=1
-			else:
-				if candidate_experience<low or candidate_experience>=high+1:
-					experience[int(math.floor(candidate_experience))]+=1
+				percent=(candidate_experience-low)/(high-low)
+				if percent<=.25:
+					experience[2][0]+=1
+				elif percent<=.5:
+					experience[2][1]+=1
+				elif percent<=.75:
+					experience[2][2]+=1
 				else:
-					experience[int(math.ceil(candidate_experience))]+=1
+					experience[2][3]+=1
+			else:
+				if candidate_experience<low and candidate_experience>=low-1:
+					experience[1][0]+=1
+				elif candidate_experience>high and candidate_experience<=high+1:
+					experience[3][0]+=1
+				elif candidate_experience<low-1:
+					experience[0][0]+=1
+				else:
+					experience[4][0]+=1
 		except Exception,e:
+			error+=1
 			print e
+	print count,":",error
 	return experience
 
 
@@ -123,10 +154,13 @@ def get_experience_score(company,mapping_shortlisted,mapping_jobs,):
 
 def get_colleges(company_id, mapping_shortlisted, mapping_jobs):
 	print "getting colleges"
-	print mapping_shortlisted
 	colleges_hired={}
 	education=[0,0]
-	for i in mapping_shortlisted[company_id]:
+	count=0
+	error=0
+	for i in mapping_shortlisted:
+		count+=1
+		
 		try:
 			candidate=elastic_prod.search(index=i['company_id'],doc_type="candidate",body={"query": {
 																							    "term": {
@@ -140,9 +174,8 @@ def get_colleges(company_id, mapping_shortlisted, mapping_jobs):
 																							 ]
 																							})
 			
-			print candidate['hits']['hits'][0]['_source']['educations']
-			print "next"
 			for college in candidate['hits']['hits'][0]['_source']['educations']:
+				print "length of the canndidate",college
 				if college['institute']['name'] in colleges_hired:
 					colleges_hired[college['institute']['name']]+=1
 				else:
@@ -156,8 +189,11 @@ def get_colleges(company_id, mapping_shortlisted, mapping_jobs):
 				else:
 					education[1]+=1
 					education[0]=(education[0]*(education[1]-1)+2)/education[1]
+			
 		except Exception, e:
+			error+=1
 			print e,i['candidate_id']
+	print count,":",error
 	return colleges_hired,education			
 	# companies[company_id]['college_score']= dict(itertools.islice(companies[company_id]['college_score'].iteritems(), 10))
 
@@ -174,7 +210,6 @@ def get_top_cities():
 																				}			
 																			}
 		},search_type='count')
-	print data
 	data=data['aggregations']['top_cities']['buckets'][1:]
 	for i in range(len(data)):
 		top_cities[data[i]['key']]=i
@@ -188,11 +223,12 @@ def get_city_score(company, mapping_shortlisted, mapping_jobs):
 	print "getting cities"
 	print company
 	# print mapping_shortlisted[company]
+	count=0
+	error=0
 	cities=[0]*20
 	try:
-
-		for i in mapping_shortlisted[company]:
-			print "yes"
+		count+=1
+		for i in mapping_shortlisted:
 			candidate_location=elastic_prod.search(index=i['company_id'], doc_type='candidate', body={ "query": {
 																										    "term": {
 																										     	"_id": {
@@ -204,12 +240,13 @@ def get_city_score(company, mapping_shortlisted, mapping_jobs):
 																										 		'linkedin.current_location.name'
 																										 ]
 																										})
-			print candidate_location
 			candidate_location = candidate_location['hits']['hits'][0]['_source']['linkedin']['current_location']['name']
 			if candidate_location in top_cities:
 				cities[top_cities[candidate_location]]+=1
 	except Exception,e:
 		print e, "        occurred from get_city_score"
+		error+=1
+	print count," : ",error
 	return cities
 
 def create_behavior(company,companies_data,mapping_shortlisted,mapping_jobs):
@@ -246,7 +283,7 @@ def create_behavior(company,companies_data,mapping_shortlisted,mapping_jobs):
 		companies_data[company]["experience_preferences"][-2]=min(companies_data[company]["experience_preferences"][-2]/(0.7**time),experience_preference[-2])
 	
 
-	#set educational_preferences
+	# #set educational_preferences
 	if "educational_preferences" not in companies_data[company]:
 		companies_data[company]['educational_preferences']=educational_preferences
 	else:
@@ -258,8 +295,8 @@ def create_behavior(company,companies_data,mapping_shortlisted,mapping_jobs):
 		companies_data[company]['educational_preferences'][0]=st_edu_av
 		companies_data[company]['educational_preferences'][1]=st_edu_no
 
-	#getting the preference score for cities
-	print mapping_shortlisted
+	# #getting the preference score for cities
+	# print mapping_shortlisted
 	city_score=get_city_score(company,mapping_shortlisted,mapping_jobs)
 	if "city_score" not in  companies_data[company]:
 		companies_data[company]["city_score"]=city_score
