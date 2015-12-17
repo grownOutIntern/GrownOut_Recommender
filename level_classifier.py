@@ -11,26 +11,12 @@ mongo = "mongodb://mongolab1.grownout.com:27017,mongolab2.grownout.com:27017/gro
 job_server = MongoClient(mongo)
 jobs=job_server.grownout2.job
 
-def level_classifier(designation, work_ex_start, work_ex_end):
-    #for the start and end, we will take the average of the two proababilities which will be multiplied with the designation probability
-    we_start_prob = prob_workex(work_ex_start)
-    we_end_prob = prob_workex(work_ex_end)
 
-    designation_prob = prob_designation(designation)
-
-    total_prob = []
-    max = 0
-    max_pos = 0
-    count = 0
-    while count < 4:
-        total_prob.append((we_start_prob[count] + we_end_prob[count])*designation_prob[count])
-        if max < total_prob[count]:
-            max = total_prob[count]
-            max_pos = count
-        count += 1
-
-    return max_pos+1
-
+#setting thresholds for levels
+level_1=8
+level_2=16
+level_3=28
+level_4=48
 
 def prob_workex(work_ex):
     #this work ex is in years
@@ -56,6 +42,143 @@ def assign_realistic_probabilities(level1_prob,level2_prob,level3_prob,level4_pr
     level4_prob = level4_prob/total_prob
 
     return [level1_prob, level2_prob, level3_prob, level4_prob]
+
+def prob_sal(a):
+    w=math.exp(-(abs(float(a)-float(level_1)))/20)
+    x=math.exp(-(abs(float(a)-float(level_2)))/20)
+    y=math.exp(-(abs(float(a)-float(level_3)))/20)
+    z=math.exp(-(abs(float(a)-float(level_4)))/20)
+    return [w,x,y,z]
+def get_designation_prob(designation,designation_probs):
+    designation=designation.replace("-"," ")
+    designation=re.sub('[^0-9a-zA-Z]+', ' ', designation)
+    designation_words=designation.split(" ")
+    prob_designation=[0.0]*4
+    level_range=[0.0]*4
+    for word in designation_words:
+        if word.lower() in designation_probs:
+            
+            prob_designation[0]+=float(designation_probs[word.lower()]['level_1'])
+            prob_designation[1]+=float(designation_probs[word.lower()]['level_2'])
+            prob_designation[2]+=float(designation_probs[word.lower()]['level_3'])
+            prob_designation[3]+=float(designation_probs[word.lower()]['level_4'])
+    a=max(prob_designation)
+    level_range[0]=prob_designation.index(max(prob_designation))+1
+    prob_designation[prob_designation.index(max(prob_designation))]=0.0
+    b=max(prob_designation)
+    level_range[1]=prob_designation.index(max(prob_designation))+1
+    try:
+        level_range[2]=(a/(a+b))
+        level_range[3]=(b/(a+b))
+    except Exception,e:
+        fggh=1
+    return level_range
+
+def  get_experience_prob(exp_min, exp_max):
+    prob_experience=[0.0]*4
+    level_range=[0.0]*4
+    min_exp_probs=prob_workex(exp_min)
+    max_exp_probs=prob_workex(exp_max)
+    # print "min ",min_exp_probs
+    # print "max ",max_exp_probs
+    for i in range(4):
+        prob_experience[i]+=((min_exp_probs[i])+(max_exp_probs[i]))
+    a=max(prob_experience)
+    level_range[0]=prob_experience.index(max(prob_experience))+1
+    prob_experience[prob_experience.index(max(prob_experience))]=0.0
+    b=max(prob_experience)
+    level_range[1]=prob_experience.index(max(prob_experience))+1
+    level_range[2]=(a/(a+b))
+    level_range[3]=(b/(a+b))
+    return level_range
+
+def get_salary_prob(sal_min,sal_max):
+    prob_salry=[0.0]*4
+    level_range=[0.0]*4
+    min_sal_probs=prob_sal(sal_min)
+    max_sal_probs=prob_sal(sal_max)
+    for i in range(len(min_sal_probs)):
+        prob_salry[i]+=min_sal_probs[i]+max_sal_probs[i]
+    a=max(prob_salry)
+    level_range[0]=prob_salry.index(max(prob_salry))+1
+    prob_salry[prob_salry.index(max(prob_salry))]=0.0
+    b=max(prob_salry)
+    level_range[1]=prob_salry.index(max(prob_salry))+1
+    level_range[2]=(a/(a+b))
+    level_range[3]=(b/(a+b))
+    return level_range
+        
+def analysis_final():
+    #level important words
+    MID_MANAGER_LEVEL = ['senior', 'sr']
+    MANAGER_LEVEL = ['manager', 'lead', 'head',  'leader', 'gerente','specialist']
+    DIRECTOR_LEVEL = ['director', 'partner', 'general', 'managing', 'gm', 'dgm', 'agm']
+    BOARD_LEVEL = ['president','md','vice','vp', 'avp', 'entrepreneur', 'owner', 'proprietor', 'chairman', 'founder', 'board', 'chief', 'ceo', 'cto', 'cfo', 'coo', 'cro', 'cmo', 'cso', 'cio']
+    mongo_server = MongoClient(['dev-mongo2.grownout.com:27017','dev-mongo1.grownout.com:27017'],replicaset='amoeba-mongo')
+    designation_db = mongo_server['designation_database']
+    designation_prob_collection = designation_db.prob_collection
+    
+    level_mapping={}
+    level_mapping[1]=MID_MANAGER_LEVEL
+    level_mapping[2]=MANAGER_LEVEL
+    level_mapping[3]=DIRECTOR_LEVEL
+    level_mapping[4]=BOARD_LEVEL
+    #getting the probability maps for designations
+    designation_probs={}
+    for designation in designation_prob_collection.find():
+        designation_probs[designation['name']] = designation
+    
+    for k in jobs.find():
+        level=0.0
+        important_words=[]
+        denom=0.0
+        #getting the predicted level via designation maps
+        pr_desi=get_designation_prob(k['title'],designation_probs)
+        pr_exp=get_experience_prob(float(k['experience']['min']),float(k['experience']['max']))
+        pr_sal=get_salary_prob(float(k['salary']['lower']),float(k['salary']['higher']))
+        print pr_desi," ",pr_exp," ",pr_sal
+        
+        for i in range(2):
+            level=level+(pr_desi[i]*pr_desi[i+2])+(pr_exp[i]*pr_exp[i+2])+(pr_sal[i]*pr_sal[i+2])
+            denom+=pr_desi[i+2]+pr_exp[i+2]+pr_sal[i+2]
+        level = level/denom
+        print level
+        low=math.floor(level)
+        high=math.ceil(level)
+        for l in level_mapping[low]+level_mapping[high]:
+            ratio=fuzz.partial_ratio(l,k['title'].lower())
+
+            if ratio>80:
+            	print ratio," ",fuzz.ratio(l,k['title'])," ",l
+                important_words.append(l)
+        print important_words,"   ",k['title'],"   experience_range",k['experience']['min'],"-",k['experience']['max'],"  salary",k['salary']['higher'],"-",k['salary']['lower']        
+
+analysis_final()
+
+
+
+def level_classifier(designation, work_ex_start, work_ex_end):
+    #for the start and end, we will take the average of the two proababilities which will be multiplied with the designation probability
+    we_start_prob = prob_workex(work_ex_start)
+    we_end_prob = prob_workex(work_ex_end)
+
+    designation_prob = prob_designation(designation)
+
+    total_prob = []
+    max = 0
+    max_pos = 0
+    count = 0
+    while count < 4:
+        total_prob.append((we_start_prob[count] + we_end_prob[count])*designation_prob[count])
+        if max < total_prob[count]:
+            max = total_prob[count]
+            max_pos = count
+        count += 1
+
+    return max_pos+1
+
+
+
 
 
 def get_designation_probability():
@@ -132,5 +255,5 @@ def fit_curve(x,y):
 
 
     # print naukri_tittle_exp
-analysis()
+# analysis()
         
