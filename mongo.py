@@ -1,5 +1,5 @@
 from fuzzywuzzy import fuzz
-from Job_Classifier_V2 import job_classifier
+# from Job_Classifier_V2 import job_classifier
 from pymongo import MongoClient
 from elasticsearch import Elasticsearch
 import itertools
@@ -18,7 +18,7 @@ Elastic_Port = 6200
 elastic_prod = Elasticsearch([{'host':Elastic_Prod_Address,'port':Elastic_Port}])
 
 top_cities={}
-
+map_cities={"Noida":"New Delhi","Gurgaon":"New Delhi","Gautam Budh Nagar district":"New Delhi","Thane":"Mumbai","South West Delhi, Delhi, India":"New Delhi"}
 def get_designation_score_present(cand_exp,job_designation,score,n):
 	try:
 		# print "job designation :" 
@@ -147,14 +147,15 @@ def get_top_cities():
 																				"top_cities":{
 																					"terms":{
 																						"field": "linkedin.current_location.name.raw",
-	        																			"size": 20
+	        																			"size": 25
 																						}
 																					}			
 																				}
 			},search_type='count')
 		data=data_agg['aggregations']['top_cities']['buckets'][1:]
 		for i in range(len(data)):
-			top_cities[data[i]['key']]=i
+			if data[i]['key'] not in map_cities:
+				top_cities[data[i]['key']]=i
 		top_cities['others']=len(data)
 	except Exception,e:
 		print e," from aggregations query getting the top cities"
@@ -167,13 +168,14 @@ def get_top_cities():
 
 def get_city_score(city):
 	print "getting cities"
-	if city in top_cities:
+	if city in map_cities:
+		return top_cities[map_cities[city]]
+	elif city in top_cities:
 		return top_cities[city]
 	else:
 		return 20
 	return 200
-	
-	
+
 
 def create_behavior(company,companies_data,mapping_shortlisted,mapping_jobs):
 	print "in create_behavior"
@@ -353,7 +355,7 @@ def main():
 			create_behavior(i,companies_data,mapping_shortlisted[i][0],mapping_jobs)
 			#break
 # create_behavior('1125387',companies_data)
-get_top_cities()
-main()
+# get_top_cities()
+# main()
 # get_experience_score1()
 
